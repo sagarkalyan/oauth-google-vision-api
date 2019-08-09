@@ -12,5 +12,5 @@ npm install -g lite-server
 
 ## Then you simply run lite-server in the current directory.
 
-
+npm start
 
