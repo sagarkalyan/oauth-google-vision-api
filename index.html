@@ -1,0 +1,151 @@
+<html>
+  <head>
+    <style>
+li{
+list-style-type:none;
+}
+#vision_button, #results{
+margin:20px;
+}
+    </style>
+  </head>
+  <body>
+    <!-- Basic Cloud Vision (Google) Demo -->
+    <!--
+    <video autoplay="true" id="videoElement"></video>
+    <button id="vision_button">Analyze</button>
+    <div id='results'></div>
+	-->
+    
+<input type="file" id="fileElem" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
+<div class="absolute"><a href="#" id="fileSelect">Select some files</a> </div>
+
+<div id="fileList">
+  <p>No files selected!</p>
+</div>
+
+ <button id="vision_button">Analyze</button>
+<div id='results'></div>
+
+<script>
+
+
+let img = null	
+window.URL = window.URL || window.webkitURL;
+
+const fileSelect = document.getElementById("fileSelect"),
+      fileElem = document.getElementById("fileElem"),
+      fileList = document.getElementById("fileList");
+
+fileSelect.addEventListener("click", function (e) {
+  if (fileElem) {
+      fileElem.click();
+  }
+  e.preventDefault(); // prevent navigation to "#"
+}, false);
+
+
+function handleFiles(files) {
+  if (!files.length) {
+    fileList.innerHTML = "<p>No files selected!</p>";
+  } else {
+    fileList.innerHTML = "";
+    const list = document.createElement("ul");
+    fileList.appendChild(list);
+    for (let i = 0; i < files.length; i++) {
+      const li = document.createElement("li");
+      list.appendChild(li);
+      
+       img = document.createElement("img");
+      img.src = window.URL.createObjectURL(files[i]);
+      img.height = 460;
+      img.onload = function() {
+        window.URL.revokeObjectURL(this.src);
+      }
+      li.appendChild(img);
+      const info = document.createElement("span");
+      info.innerHTML = "<br/>" + files[i].name + ": " + files[i].size + " bytes";
+      li.appendChild(info);
+
+}
+}
+}
+
+
+
+      // Need to first get an access token
+      if (!document.location.href.includes('access_token')) {
+	  let client_id = '641695863884-4qrd5s5sdom1719nppm03nn2r5q6mats.apps.googleusercontent.com';
+	  document.location.href= [`https://accounts.google.com/o/oauth2/v2/auth?client_id=${client_id}`,
+				   `redirect_uri=${window.location.href}`,
+				   `response_type=id_token token`,
+				   `scope=openid https://www.googleapis.com/auth/cloud-vision`,
+				   `nonce=${Math.random().toString()}`].join('&') ;	  
+      } 
+
+      // If we are here, we have the access token, prase it out and store in variable 
+      var matches = document.location.href.match(/(.*)\#access_token\=(.*?)\&/);
+      var app_url = matches[1];
+      var token = matches[2];
+      console.log(token);
+      
+      // hide the token from the URL
+      history.pushState({},'', window.location.href.substr(0, window.location.href.search("#")));
+    
+	 // We only get to work when the vision button is clicked
+      document.querySelector("#vision_button").addEventListener('click', evt => {
+	  // extract image as base64, scale it down to reduce data transfer speed	  
+	  var scale = 0.25;
+	  var canvas = document.createElement("canvas");
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext('2d')
+              .drawImage(img, 0, 0, canvas.width, canvas.height);
+
+	  // dataUrl contains base64 version of image
+          var dataUrl = canvas.toDataURL();
+
+	  // Send image to google to analyze
+	  fetch('https://vision.googleapis.com/v1/images:annotate', {
+	      method: 'POST',
+	      headers: {
+		  'Authorization': `Bearer ${token}`,
+		  'Content-Type': 'application/json'
+	      },
+	      body: JSON.stringify({
+		  requests: [
+		      {
+			  features: {
+			      type: 'LANDMARK_DETECTION'
+			  },
+			  image: {
+			      // have to extract only the image data from dataURL
+			      content: dataUrl.substring('data:image/png;base64,'.length)
+			  }
+		      }
+		  ]
+	      })
+	  }).then( resp => {
+	      return resp.json();
+	  }).then( json => {
+	      // Simply output the response
+	      console.log(json);
+	      results.innerHTML = '';
+	      json.responses[0].landmarkAnnotations.forEach( annotation => {
+		  let description = document.createElement('span');
+		  let score = document.createElement('span');
+
+		  let div = document.createElement('div');
+		  description.innerText = annotation.description;
+		  score.innerText = annotation.score;
+
+		  div.append(description,score);
+
+		  results.append(div);
+	      });
+	  });
+      });
+      
+    </script>
+  </body>
+</html>
